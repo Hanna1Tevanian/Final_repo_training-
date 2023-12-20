@@ -63,6 +63,18 @@ class Record:
     def add_tag(self, tag):
         self.tags.append(tag)
 
+    def edit_email(self, new_email):
+        self.email = Email(new_email)
+
+    def edit_name(self, new_name):
+        self.name = Name(new_name)
+
+    def edit_address(self, new_address):
+        self.address = Address(new_address)
+
+    def edit_birthday(self, new_birthday):
+        self.birthday = Birthday(new_birthday)    
+
     def show_tags(self):
         return ', '.join(self.tags) if self.tags else "No tags"
 
@@ -169,6 +181,59 @@ def change_contact_command(args, book):
         return "Contact not found."
 
 @input_error
+def change_email_command(args, book):
+    name, new_email = args
+    record = book.find(name)
+    if record:
+        if record.email:
+            record.edit_email(new_email)
+            return "Email updated."
+        else:
+            record.add_email(new_email)
+            return "Email added."
+    else:
+        return "Contact not found."
+
+@input_error
+def change_name_command(args, book):
+    old_name, new_name = args
+    record = book.find(old_name)
+    if record:
+        record.edit_name(new_name)
+        book.data[new_name] = book.data.pop(old_name)
+        return "Name updated."
+    else:
+        return "Contact not found."
+
+@input_error
+def change_address_command(args, book):
+    name, new_address = args
+    record = book.find(name)
+    if record:
+        if record.address:
+            record.edit_address(new_address)
+            return "Address updated."
+        else:
+            record.add_address(new_address)
+            return "Address added."
+    else:
+        return "Contact not found."
+
+@input_error
+def change_phone_command(args, book):
+    name, old_phone, new_phone = args
+    record = book.find(name)
+    if record:
+        if record.find_phone(old_phone):
+            record.edit_phone(old_phone, new_phone)
+            return "Phone number updated."
+        else:
+            record.add_phone(new_phone)
+            return "Phone number added."
+    else:
+        return "Contact not found."
+
+@input_error
 def search_by_tag_command(args, book):
     tag = args[0]
     matching_records = book.search_by_tag(tag)
@@ -257,7 +322,7 @@ def add_tag_command(args, book):
         return "Tag added."
     else:
         return "Contact not found."
-
+ 
 @input_error
 def show_tags_command(args, book):
     name = args[0]
