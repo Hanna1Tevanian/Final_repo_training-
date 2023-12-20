@@ -2,19 +2,6 @@ import pickle
 import re
 from datetime import datetime, timedelta
 
-def input_error(func):
-    def inner(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except ValueError as e:
-            return str(e)
-        except KeyError:
-            return "Contact not found."
-        except IndexError:
-            return "Invalid command or missing argument."
-
-    return inner
-
 class Field:
     def __init__(self, value):
         self.value = value
@@ -56,7 +43,7 @@ class Record:
         self.address = None # Added address field
         self.birthday = None
         self.notes = None # Added field for text notes
-        self.tags = [] # Added field for tags
+        self.tags = []  # Added field for tags
 
     def add_phone(self, phone):
         self.phones.append(Phone(phone))
@@ -150,36 +137,135 @@ class AddressBook:
         sorted_records = sorted(self.data.values(), key=lambda record: tag in record.tags)
         return sorted_records
 
-    @input_error
-    def edit_contact_command(self, args):
-        name, field, value = args
-        record = self.find(name)
-        if record:
-            if field.lower() == "name":
-                record.name.value = value
-            elif field.lower() == "phone":
-                old_phone = value.split(',')[0]
-                new_phone = value.split(',')[1]
-                record.edit_phone(old_phone, new_phone)
-            elif field.lower() == "email":
-                record.add_email(value)
-            elif field.lower() == "address":
-                record.add_address(value)
-            elif field.lower() == "birthday":
-                record.add_birthday(value)
-            else:
-                return "Invalid field name. Supported fields: name, phone, email, address, birthday."
-            return f"{field.capitalize()} updated."
-        else:
+def input_error(func):
+    def inner(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ValueError as e:
+            return str(e)
+        except KeyError:
             return "Contact not found."
+        except IndexError:
+            return "Invalid command or missing argument."
 
-    @input_error
-    def remove_contact_command(self, args):
-        name = args[0]
-        if self.remove_contact(name):
-            return f"{name} removed from the address book."
-        else:
-            return "Contact not found."
+    return inner
+
+@input_error
+def add_contact_command(args, book):
+    name, phone = args
+    record = Record(name)
+    record.add_phone(phone)
+    book.add_record(record)
+    return "Contact added."
+
+@input_error
+def change_contact_command(args, book):
+    name, phone = args
+    record = book.find(name)
+    if record:
+        record.edit_phone(record.phones[0], phone)  # Assume that the contact has only one phone
+        return "Contact updated."
+    else:
+        return "Contact not found."
+
+@input_error
+def search_by_tag_command(args, book):
+    tag = args[0]
+    matching_records = book.search_by_tag(tag)
+    if matching_records:
+        return "\n".join(str(record) for record in matching_records)
+    else:
+        return "No contacts found with the specified tag."
+
+@input_error
+def sort_by_tags_command(args, book):
+    tag = args[0]
+    sorted_records = book.sort_by_tags(tag)
+    if sorted_records:
+        return "\n".join(str(record) for record in sorted_records)
+    else:
+        return "No contacts found with the specified tag."
+
+@input_error
+def show_phone_command(args, book):
+    name = args[0]
+    record = book.find(name)
+    if record and record.phones:
+        return f"{name}'s phone: {record.phones[0]}"
+    else:
+        return "Contact not found or phone not specified."
+
+@input_error
+def show_all_command(args, book):
+    if not book.data:
+        return "No contacts found."
+    else:
+        return "\n".join(str(record) for record in book.data.values())
+
+@input_error
+def add_birthday_command(args, book):
+    name, birthday = args
+    record = book.find(name)
+    if record:
+        record.add_birthday(birthday)
+        return "Birthday added."
+    else:
+        return "Contact not found."
+
+@input_error
+def show_birthday_command(args, book):
+    name = args[0]
+    record = book.find(name)
+    if record and record.birthday:
+        return f"{name}'s birthday: {record.birthday}"
+    else:
+        return "Contact not found or birthday not specified."
+
+@input_error
+def birthdays_command(args, book):
+    upcoming_birthdays = book.get_birthdays_per_week()
+    if upcoming_birthdays:
+        return f"Upcoming birthdays: {', '.join(upcoming_birthdays)}"
+    else:
+        return "No upcoming birthdays."
+
+@input_error
+def show_notes_command(args, book):
+    name = args[0]
+    record = book.find(name)
+    if record and record.notes:
+        return f"{name}'s notes: {record.show_notes()}"
+    else:
+        return "Contact not found or notes not specified."
+
+@input_error
+def add_notes_command(args, book):
+    name, notes = args
+    record = book.find(name)
+    if record:
+        record.add_notes(notes)
+        return "Notes added."
+    else:
+        return "Contact not found."
+
+@input_error
+def add_tag_command(args, book):
+    name, tag = args
+    record = book.find(name)
+    if record:
+        record.add_tag(tag)
+        return "Tag added."
+    else:
+        return "Contact not found."
+
+@input_error
+def show_tags_command(args, book):
+    name = args[0]
+    record = book.find(name)
+    if record and record.tags:
+        return f"{name}'s tags: {record.show_tags()}"
+    else:
+        return "Contact not found or tags not specified."
 
 def parse_input(user_input):
     cmd, *args = user_input.split()
@@ -201,29 +287,29 @@ def main():
         elif command == "add":
             print(add_contact_command(args, book))
         elif command == "change":
-            print(book.edit_contact_command(args))
+            print(change_contact_command(args, book))
         elif command == "search-by-tag":
-            print(book.search_by_tag(args[0]))
+            print(search_by_tag_command(args, book))
         elif command == "sort-by-tags":
-            print(book.sort_by_tags(args[0]))
+            print(sort_by_tags_command(args, book))
         elif command == "phone":
-            print(book.show_phone_command(args[0]))
+            print(show_phone_command(args, book))
         elif command == "all":
-            print(book.show_all_command(args))
+            print(show_all_command(args, book))
         elif command == "add-birthday":
-            print(book.add_birthday_command(args))
+            print(add_birthday_command(args, book))
         elif command == "show-birthday":
-            print(book.show_birthday_command(args[0]))
+            print(show_birthday_command(args, book))
         elif command == "birthdays":
-            print(book.birthdays_command(args))
+            print(birthdays_command(args, book))
         elif command == "notes":
-            print(book.show_notes_command(args[0]))
+            print(show_notes_command(args, book))
         elif command == "add-notes":
-            print(book.add_notes_command(args))
+            print(add_notes_command(args, book))
         elif command == "add-tag":
-            print(book.add_tag_command(args))
+            print(add_tag_command(args, book))
         elif command == "show-tags":
-            print(book.show_tags_command(args[0]))
+            print(show_tags_command(args, book))
         elif command == "save":
             filename = input("Enter the filename to save: ")
             book.save_to_file(filename)
