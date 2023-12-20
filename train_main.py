@@ -94,6 +94,22 @@ class Record:
     def show_notes(self):
         return str(self.notes) if self.notes else "No notes"
 
+    def remove_email(self):
+        self.email = None
+
+    def remove_address(self):
+        self.address = None
+
+    def remove_birthday(self):
+        self.birthday = None
+
+    def remove_tag(self, tag):
+        if tag in self.tags:
+            self.tags.remove(tag)
+
+    def remove_all_tags(self):
+        self.tags = []
+
     def __str__(self):
         phones_str = '; '.join(str(p) for p in self.phones)
         email_str = str(self.email) if self.email else "Not specified"
@@ -113,9 +129,34 @@ class AddressBook:
     def find(self, name):
         return self.data.get(name)
 
-    def delete(self, name):
+    def delete_contact(self, name):
         if name in self.data:
             del self.data[name]
+
+    def delete_email(self, name):
+        record = self.find(name)
+        if record and record.email:
+            record.remove_email()
+
+    def delete_address(self, name):
+        record = self.find(name)
+        if record and record.address:
+            record.remove_address()
+
+    def delete_phone(self, name, phone):
+        record = self.find(name)
+        if record and record.find_phone(phone):
+            record.remove_phone(phone)
+
+    def delete_birthday(self, name):
+        record = self.find(name)
+        if record and record.birthday:
+            record.remove_birthday()
+
+    def delete_all_tags(self, name):
+        record = self.find(name)
+        if record:
+            record.remove_all_tags()
 
     def get_birthdays_per_week(self):
         today = datetime.now()
@@ -179,6 +220,42 @@ def change_contact_command(args, book):
         return "Contact updated."
     else:
         return "Contact not found."
+
+@input_error
+def delete_contact_command(args, book):
+    name = args[0]
+    book.delete_contact(name)
+    return f"Contact '{name}' deleted."
+
+@input_error
+def delete_email_command(args, book):
+    name = args[0]
+    book.delete_email(name)
+    return f"Email for contact '{name}' deleted."
+
+@input_error
+def delete_address_command(args, book):
+    name = args[0]
+    book.delete_address(name)
+    return f"Address for contact '{name}' deleted."
+
+@input_error
+def delete_phone_command(args, book):
+    name, phone = args
+    book.delete_phone(name, phone)
+    return f"Phone number '{phone}' for contact '{name}' deleted."
+
+@input_error
+def delete_birthday_command(args, book):
+    name = args[0]
+    book.delete_birthday(name)
+    return f"Birthday for contact '{name}' deleted."
+
+@input_error
+def delete_all_tags_command(args, book):
+    name = args[0]
+    book.delete_all_tags(name)
+    return f"All tags for contact '{name}' deleted."
 
 @input_error
 def change_email_command(args, book):
@@ -375,6 +452,18 @@ def main():
             print(add_tag_command(args, book))
         elif command == "show-tags":
             print(show_tags_command(args, book))
+        elif command == "delete-contact":
+            print(delete_contact_command(args, book))
+        elif command == "delete-email":
+            print(delete_email_command(args, book))
+        elif command == "delete-address":
+            print(delete_address_command(args, book))
+        elif command == "delete-phone":
+            print(delete_phone_command(args, book))
+        elif command == "delete-birthday":
+            print(delete_birthday_command(args, book))
+        elif command == "delete-all-tags":
+            print(delete_all_tags_command(args, book))
         elif command == "save":
             filename = input("Enter the filename to save: ")
             book.save_to_file(filename)
