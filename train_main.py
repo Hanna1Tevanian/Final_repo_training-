@@ -1,6 +1,10 @@
 import pickle
 import re
 from datetime import datetime, timedelta
+from rich.console import Console
+from rich.table import Table
+
+console = Console()
 
 class Field:
     def __init__(self, value):
@@ -94,6 +98,9 @@ class Record:
     def show_notes(self):
         return str(self.notes) if self.notes else "No notes"
 
+    def remove_notes(self):
+        self.notes = None
+
     def remove_email(self):
         self.email = None
 
@@ -128,6 +135,18 @@ class AddressBook:
 
     def find(self, name):
         return self.data.get(name)
+    
+    def find_by_phone(self, phone):
+        for record in self.data.values():
+            if any(str(p) == phone for p in record.phones):
+                return record
+        return None    
+
+    def find_by_email(self, email):
+        for record in self.data.values():
+            if record.email and str(record.email) == email:
+                return record
+        return None
 
     def delete_contact(self, name):
         if name in self.data:
@@ -200,6 +219,15 @@ def input_error(func):
             return "Contact not found."
         except IndexError:
             return "Invalid command or missing argument."
+
+def remove_notes_command(args, book):
+    name = args[0]
+    record = book.find(name)
+    if record:
+        record.remove_notes()
+        return "Notes removed."
+    else:
+        return "Contact not found."
 
     return inner
 
@@ -339,10 +367,26 @@ def show_phone_command(args, book):
 
 @input_error
 def show_all_command(args, book):
-    if not book.data:
-        return "No contacts found."
-    else:
-        return "\n".join(str(record) for record in book.data.values())
+    """Creating output rich styles for the "all" command"""
+    table = Table(show_header=True, header_style="bold yellow")
+    table.add_column("Name", style="bold bright_blue")
+    table.add_column("Phone", style="bold white")
+    table.add_column("Email", style="bold bright_blue")
+    table.add_column("Address", style="bold white")
+    table.add_column("Birthday", style="bold bright_blue")
+    table.add_column("Notes", style="bold white")
+    table.add_column("Tags", style="bold bright_blue")
+
+    for name, record in book.data.items():
+        phones_str = '; '.join(str(p) for p in record.phones)
+        email_str = str(record.email) if record.email else "Not specified"
+        address_str = str(record.address) if record.address else "Not specified"
+        birthday_str = str(record.birthday) if record.birthday else "Not specified"
+        notes_str = record.show_notes()
+        tags_str = record.show_tags()
+        table.add_row(name, phones_str, email_str, address_str, birthday_str, notes_str, tags_str)
+
+    console.print(table)
 
 @input_error
 def add_birthday_command(args, book):
@@ -409,6 +453,58 @@ def show_tags_command(args, book):
     else:
         return "Contact not found or tags not specified."
 
+def rich_print(*args, **kwargs):
+    """Sets the "bold bright_blue" style for output if no other style has been specified"""
+    kwargs.setdefault("style", "bold bright_blue")
+    console.print(*args, **kwargs)
+    
+@input_error
+def rich_input(prompt):
+    """Sets the "bold yellow" style for input if no other style has been specified"""
+    console.print(prompt, end="", style="bold yellow")
+    return input()
+
+def show_help_command():
+    """Initialize the console and table"""
+    console = Console()
+    table = Table(show_header=True, header_style="bold dark_blue")
+    # Define the columns for the table
+    table.add_column("Command", justify="left")
+    table.add_column("Description", justify="left")
+    table.add_column("Example", justify="left")
+
+    # List of commands and descriptions for the application
+    commands = [
+        ("hello", "Greets the user", "hello"),
+        ("add <name> <phone>", "Adds a new contact with the specified name and phone number", "add John 1234567890"),
+        ("change <name> <new phone>", "Updates the phone number for the specified contact", "change John 0987654321"),
+        ("phone <name>", "Shows the phone number of the specified contact", "phone John"),
+        ("all", "Displays all contacts in the address book", "all"),
+        ("add-birthday <name> <birthday>", "Adds a birthday to the specified contact", "add-birthday John 01.01.1990"),
+        ("show-birthday <name>", "Shows the birthday of the specified contact", "show-birthday John"),
+        ("birthdays", "Lists upcoming birthdays within the next week", "birthdays"),
+        ("add-notes <name> <notes>", "Adds notes to the specified contact", "add-notes John Note1"),
+        ("show-notes <name>", "Shows the notes of the specified contact", "show-notes John"),
+        ("add-tag <name> <tag>", "Adds a tag to the specified contact", "add-tag John friend"),
+        ("show-tags <name>", "Shows the tags of the specified contact", "show-tags John"),
+        ("search-by-tag <tag>", "Searches for contacts by tag", "search-by-tag friend"),
+        ("sort-by-tags <tag>", "Sorts contacts by tag", "sort-by-tags friend"),
+        ("save", "Saves the address book to a file", "save mybook.pkl"),
+        ("load", "Loads the address book from a file", "load mybook.pkl"),
+        ("change-contact <name> <new phone>", "Changes the contact's phone number", "change-contact John 9876543210"),
+        ("delete-email <name>", "Deletes the email of the specified contact", "delete-email John"),
+        ("delete-address <name>", "Deletes the address of the specified contact", "delete-address John"),
+        ("delete-phone <name> <phone>", "Deletes a specific phone number for the contact", "delete-phone John 1234567890"),
+        ("delete-birthday <name>", "Deletes the birthday of the specified contact", "delete-birthday John"),
+        ("delete-all-tags <name>", "Deletes all tags from the specified contact", "delete-all-tags John"),
+    ]
+    # Fill the table with the commands and their descriptions
+    for command, description, example in commands:
+        table.add_row(command, description, example)
+
+    # Print the table to the console
+    console.print(table)
+
 def parse_input(user_input):
     cmd, *args = user_input.split()
     cmd = cmd.strip().lower()
@@ -416,64 +512,76 @@ def parse_input(user_input):
 
 def main():
     book = AddressBook()
-    print("Welcome to the assistant bot!")
+    rich_print("Welcome to the assistant bot!")
     while True:
-        user_input = input("Enter a command: ")
+        user_input = rich_input("Enter a command: ")
         command, args = parse_input(user_input)
 
         if command in ["close", "exit"]:
-            print("Goodbye!")
+            rich_print("Goodbye!", style="bold white")
             break
+        elif command == "help":
+            show_help_command()
         elif command == "hello":
-            print("How can I help you?")
+            rich_print("How can I help you?")
         elif command == "add":
-            print(add_contact_command(args, book))
+            rich_print(add_contact_command(args, book), style="bold white")
         elif command == "change":
-            print(change_contact_command(args, book))
+            rich_print(change_contact_command(args, book))
         elif command == "search-by-tag":
-            print(search_by_tag_command(args, book))
+            rich_print(search_by_tag_command(args, book))
         elif command == "sort-by-tags":
-            print(sort_by_tags_command(args, book))
+            rich_print(sort_by_tags_command(args, book))
         elif command == "phone":
-            print(show_phone_command(args, book))
+            rich_print(show_phone_command(args, book))
+        elif command == "find-by-phone":
+            phone = args[0]
+            record = book.find_by_phone(phone)
+            rich_print(f"Contact found: {record}" if record else "Contact not found.")
+        elif command == "find-by-email":
+            email = args[0]
+            record = book.find_by_email(email)
+            rich_print(f"Contact found: {record}" if record else "Contact not found.")        
         elif command == "all":
-            print(show_all_command(args, book))
+            rich_print(show_all_command(args, book))
         elif command == "add-birthday":
-            print(add_birthday_command(args, book))
+            rich_print(add_birthday_command(args, book), style="bold white")
         elif command == "show-birthday":
-            print(show_birthday_command(args, book))
+            rich_print(show_birthday_command(args, book), style="bold white")
         elif command == "birthdays":
-            print(birthdays_command(args, book))
+            rich_print(birthdays_command(args, book), style="bold white")
         elif command == "notes":
-            print(show_notes_command(args, book))
+            rich_print(show_notes_command(args, book))
         elif command == "add-notes":
-            print(add_notes_command(args, book))
+            rich_print(add_notes_command(args, book))
+        if command == "remove-notes":
+            rich_print(remove_notes_command(args, book))
         elif command == "add-tag":
-            print(add_tag_command(args, book))
+            rich_print(add_tag_command(args, book))
         elif command == "show-tags":
-            print(show_tags_command(args, book))
+            rich_print(show_tags_command(args, book))
         elif command == "delete-contact":
-            print(delete_contact_command(args, book))
+            rich_print(delete_contact_command(args, book))
         elif command == "delete-email":
-            print(delete_email_command(args, book))
+            rich_print(delete_email_command(args, book))
         elif command == "delete-address":
-            print(delete_address_command(args, book))
+            rich_print(delete_address_command(args, book))
         elif command == "delete-phone":
-            print(delete_phone_command(args, book))
+            rich_print(delete_phone_command(args, book))
         elif command == "delete-birthday":
-            print(delete_birthday_command(args, book))
+            rich_print(delete_birthday_command(args, book))
         elif command == "delete-all-tags":
-            print(delete_all_tags_command(args, book))
+            rich_print(delete_all_tags_command(args, book))
         elif command == "save":
             filename = input("Enter the filename to save: ")
             book.save_to_file(filename)
-            print("Address book saved.")
+            rich_print("Address book saved.")
         elif command == "load":
             filename = input("Enter the filename to load: ")
             book.load_from_file(filename)
-            print("Address book loaded.")
+            rich_print("Address book loaded.")
         else:
-            print("Invalid command.")
+            rich_print("Invalid command.")
 
 if __name__ == "__main__":
     main()
